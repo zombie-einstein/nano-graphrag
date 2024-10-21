@@ -1,14 +1,12 @@
+from dataclasses import dataclass
 """
 Reference:
  - Prompts are from [graphrag](https://github.com/microsoft/graphrag)
 """
 
 GRAPH_FIELD_SEP = "<SEP>"
-PROMPTS = {}
 
-PROMPTS[
-    "claim_extraction"
-] = """-Target activity-
+claim_extraction = """-Target activity-
 You are an intelligent assistant that helps a human analyst to analyze claims against certain entities presented in a text document.
 
 -Goal-
@@ -60,9 +58,7 @@ Claim description: {claim_description}
 Text: {input_text}
 Output: """
 
-PROMPTS[
-    "community_report"
-] = """You are an AI assistant that helps a human analyst to perform general information discovery. 
+community_report = """You are an AI assistant that helps a human analyst to perform general information discovery. 
 Information discovery is the process of identifying and assessing relevant information associated with certain entities (e.g., organizations and individuals) within a network.
 
 # Goal
@@ -191,9 +187,7 @@ Do not include information where the supporting evidence for it is not provided.
 Output:
 """
 
-PROMPTS[
-    "entity_extraction"
-] = """-Goal-
+entity_extraction = """-Goal-
 Given a text document that is potentially relevant to this activity and a list of entity types, identify all entities of those types from the text and all relationships among the identified entities.
 
 -Steps-
@@ -294,9 +288,7 @@ Output:
 """
 
 
-PROMPTS[
-    "summarize_entity_descriptions"
-] = """You are a helpful assistant responsible for generating a comprehensive summary of the data provided below.
+summarize_entity_descriptions = """You are a helpful assistant responsible for generating a comprehensive summary of the data provided below.
 Given one or two entities, and a list of descriptions, all related to the same entity or group of entities.
 Please concatenate all of these into a single, comprehensive description. Make sure to include information collected from all the descriptions.
 If the provided descriptions are contradictory, please resolve the contradictions and provide a single, coherent summary.
@@ -311,24 +303,16 @@ Output:
 """
 
 
-PROMPTS[
-    "entiti_continue_extraction"
-] = """MANY entities were missed in the last extraction.  Add them below using the same format:
-"""
+entity_continue_extraction = """MANY entities were missed in the last extraction.  Add them below using the same format: """
 
-PROMPTS[
-    "entiti_if_loop_extraction"
-] = """It appears some entities may have still been missed.  Answer YES | NO if there are still entities that need to be added.
-"""
+entity_if_loop_extraction = """It appears some entities may have still been missed.  Answer YES | NO if there are still entities that need to be added."""
 
-PROMPTS["DEFAULT_ENTITY_TYPES"] = ["organization", "person", "geo", "event"]
-PROMPTS["DEFAULT_TUPLE_DELIMITER"] = "<|>"
-PROMPTS["DEFAULT_RECORD_DELIMITER"] = "##"
-PROMPTS["DEFAULT_COMPLETION_DELIMITER"] = "<|COMPLETE|>"
+DEFAULT_ENTITY_TYPES = ["organization", "person", "geo", "event"]
+DEFAULT_TUPLE_DELIMITER = "<|>"
+DEFAULT_RECORD_DELIMITER = "##"
+DEFAULT_COMPLETION_DELIMITER = "<|COMPLETE|>"
 
-PROMPTS[
-    "local_rag_response"
-] = """---Role---
+local_rag_response = """---Role---
 
 You are a helpful assistant responding to questions about data in the tables provided.
 
@@ -365,9 +349,7 @@ Do not include information where the supporting evidence for it is not provided.
 Add sections and commentary to the response as appropriate for the length and format. Style the response in markdown.
 """
 
-PROMPTS[
-    "global_map_rag_points"
-] = """---Role---
+global_map_rag_points = """---Role---
 
 You are a helpful assistant responding to questions about data in the tables provided.
 
@@ -422,9 +404,7 @@ The response should be JSON formatted as follows:
 }}
 """
 
-PROMPTS[
-    "global_reduce_rag_response"
-] = """---Role---
+global_reduce_rag_response = """---Role---
 
 You are a helpful assistant responding to questions about a dataset by synthesizing perspectives from multiple analysts.
 
@@ -478,9 +458,7 @@ Do not include information where the supporting evidence for it is not provided.
 Add sections and commentary to the response as appropriate for the length and format. Style the response in markdown.
 """
 
-PROMPTS[
-    "naive_rag_response"
-] = """You're a helpful assistant
+naive_rag_response = """You're a helpful assistant
 Below are the knowledge you know:
 {content_data}
 ---
@@ -492,11 +470,11 @@ Do not include information where the supporting evidence for it is not provided.
 {response_type}
 """
 
-PROMPTS["fail_response"] = "Sorry, I'm not able to provide an answer to that question."
+fail_response = "Sorry, I'm not able to provide an answer to that question."
 
-PROMPTS["process_tickers"] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+process_tickers = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
-PROMPTS["default_text_separator"] = [
+default_text_separator = [
     # Paragraph separators
     "\n\n",
     "\r\n\r\n",
@@ -518,3 +496,24 @@ PROMPTS["default_text_separator"] = [
     # Special characters
     "\u200b",  # Zero-width space (used in some Asian languages)
 ]
+
+
+@dataclass
+class Prompts:
+    claim_extraction: str = claim_extraction
+    community_report: str = community_report
+    entity_extraction: str = entity_extraction
+    summarize_entity_descriptions: str = summarize_entity_descriptions
+    entity_continue_extraction: str = entity_continue_extraction
+    entity_if_loop_extraction: str = entity_if_loop_extraction
+    entity_types: str = DEFAULT_ENTITY_TYPES
+    tuple_delimiter: str = DEFAULT_TUPLE_DELIMITER
+    record_delimiter: str = DEFAULT_RECORD_DELIMITER
+    completion_delimiter: str = DEFAULT_COMPLETION_DELIMITER
+    local_rag_response: str = local_rag_response
+    global_map_rag_points: str = global_map_rag_points
+    global_reduce_rag_response: str = global_reduce_rag_response
+    naive_rag_response: str = naive_rag_response
+    fail_response: str = fail_response
+    process_tickers: str = process_tickers
+    text_separator: str = default_text_separator

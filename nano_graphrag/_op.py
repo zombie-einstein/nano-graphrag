@@ -2,7 +2,7 @@ import re
 import json
 import asyncio
 import tiktoken
-from typing import Union
+from typing import Union, Optional
 from collections import Counter, defaultdict
 from ._splitter import SeparatorSplitter
 from ._utils import (
@@ -26,7 +26,7 @@ from .base import (
     TextChunkSchema,
     QueryParam,
 )
-from .prompt import GRAPH_FIELD_SEP, PROMPTS
+from .prompt import GRAPH_FIELD_SEP, Prompts
 
 
 def chunking_by_token_size(
@@ -68,11 +68,13 @@ def chunking_by_seperators(
     tiktoken_model,
     overlap_token_size=128,
     max_token_size=1024,
+    prompts: Optional[Prompts] = None
 ):
+    prompts = Prompts() if prompts is None else prompts
 
     splitter = SeparatorSplitter(
         separators=[
-            tiktoken_model.encode(s) for s in PROMPTS["default_text_separator"]
+            tiktoken_model.encode(s) for s in prompts.text_separator
         ],
         chunk_size=max_token_size,
         chunk_overlap=overlap_token_size,
@@ -123,7 +125,9 @@ async def _handle_entity_relation_summary(
     entity_or_relation_name: str,
     description: str,
     global_config: dict,
+    prompts: Optional[Prompts] = None,
 ) -> str:
+    prompts = Prompts() if prompts is None else prompts
     use_llm_func: callable = global_config["cheap_model_func"]
     llm_max_tokens = global_config["cheap_model_max_token_size"]
     tiktoken_model_name = global_config["tiktoken_model_name"]
@@ -132,7 +136,7 @@ async def _handle_entity_relation_summary(
     tokens = encode_string_by_tiktoken(description, model_name=tiktoken_model_name)
     if len(tokens) < summary_max_tokens:  # No need for summary
         return description
-    prompt_template = PROMPTS["summarize_entity_descriptions"]
+    prompt_template = prompts.summarize_entity_descriptions
     use_description = decode_tokens_by_tiktoken(
         tokens[:llm_max_tokens], model_name=tiktoken_model_name
     )
@@ -293,21 +297,23 @@ async def extract_entities(
     knwoledge_graph_inst: BaseGraphStorage,
     entity_vdb: BaseVectorStorage,
     global_config: dict,
+    prompts: Optional[Prompts],
 ) -> Union[BaseGraphStorage, None]:
+    prompts = Prompts() if prompts is None else prompts
     use_llm_func: callable = global_config["best_model_func"]
     entity_extract_max_gleaning = global_config["entity_extract_max_gleaning"]
 
     ordered_chunks = list(chunks.items())
 
-    entity_extract_prompt = PROMPTS["entity_extraction"]
+    entity_extract_prompt = prompts.entity_extraction
     context_base = dict(
-        tuple_delimiter=PROMPTS["DEFAULT_TUPLE_DELIMITER"],
-        record_delimiter=PROMPTS["DEFAULT_RECORD_DELIMITER"],
-        completion_delimiter=PROMPTS["DEFAULT_COMPLETION_DELIMITER"],
-        entity_types=",".join(PROMPTS["DEFAULT_ENTITY_TYPES"]),
+        tuple_delimiter=prompts.tuple_delimiter,
+        record_delimiter=prompts.record_delimiter,
+        completion_delimiter=prompts.completion_delimiter,
+        entity_types=",".join(prompts.entity_types),
     )
-    continue_prompt = PROMPTS["entiti_continue_extraction"]
-    if_loop_prompt = PROMPTS["entiti_if_loop_extraction"]
+    continue_prompt = prompts.entity_continue_extraction
+    if_loop_prompt = prompts.entity_if_loop_extraction
 
     already_processed = 0
     already_entities = 0
@@ -369,9 +375,7 @@ async def extract_entities(
         already_processed += 1
         already_entities += len(maybe_nodes)
         already_relations += len(maybe_edges)
-        now_ticks = PROMPTS["process_tickers"][
-            already_processed % len(PROMPTS["process_tickers"])
-        ]
+        now_ticks = prompts.process_tickers[already_processed % len(prompts.process_tickers)]
         print(
             f"{now_ticks} Processed {already_processed}({already_processed*100//len(ordered_chunks)}%) chunks,  {already_entities} entities(duplicated), {already_relations} relations(duplicated)\r",
             end="",
@@ -595,15 +599,16 @@ async def generate_community_report(
     community_report_kv: BaseKVStorage[CommunitySchema],
     knwoledge_graph_inst: BaseGraphStorage,
     global_config: dict,
+    prompts: Optional[Prompts],
 ):
+    prompts = Prompts() if prompts is None else prompts
     llm_extra_kwargs = global_config["special_community_report_llm_kwargs"]
     use_llm_func: callable = global_config["best_model_func"]
     use_string_json_convert_func: callable = global_config[
         "convert_response_to_json_func"
     ]
 
-    community_report_prompt = PROMPTS["community_report"]
-
+    community_report_prompt = prompts.community_report
     communities_schema = await knwoledge_graph_inst.community_schema()
     community_keys, community_values = list(communities_schema.keys()), list(
         communities_schema.values()
@@ -626,9 +631,7 @@ async def generate_community_report(
 
         data = use_string_json_convert_func(response)
         already_processed += 1
-        now_ticks = PROMPTS["process_tickers"][
-            already_processed % len(PROMPTS["process_tickers"])
-        ]
+        now_ticks = prompts.process_tickers[already_processed % len(prompts.process_tickers)]
         print(
             f"{now_ticks} Processed {already_processed} communities\r",
             end="",
@@ -914,7 +917,9 @@ async def local_query(
     text_chunks_db: BaseKVStorage[TextChunkSchema],
     query_param: QueryParam,
     global_config: dict,
+    prompts: Optional[Prompts] = None,
 ) -> str:
+    prompts = Prompts() if prompts is None else prompts
     use_model_func = global_config["best_model_func"]
     context = await _build_local_query_context(
         query,
@@ -927,8 +932,8 @@ async def local_query(
     if query_param.only_need_context:
         return context
     if context is None:
-        return PROMPTS["fail_response"]
-    sys_prompt_temp = PROMPTS["local_rag_response"]
+        return prompts.fail_response
+    sys_prompt_temp = prompts.local_rag_response
     sys_prompt = sys_prompt_temp.format(
         context_data=context, response_type=query_param.response_type
     )
@@ -944,7 +949,9 @@ async def _map_global_communities(
     communities_data: list[CommunitySchema],
     query_param: QueryParam,
     global_config: dict,
+    prompts: Optional[Prompts] = None,
 ):
+    prompts = Prompts() if prompts is None else prompts
     use_string_json_convert_func = global_config["convert_response_to_json_func"]
     use_model_func = global_config["best_model_func"]
     community_groups = []
@@ -969,7 +976,7 @@ async def _map_global_communities(
                 ]
             )
         community_context = list_of_list_to_csv(communities_section_list)
-        sys_prompt_temp = PROMPTS["global_map_rag_points"]
+        sys_prompt_temp = prompts.global_map_rag_points
         sys_prompt = sys_prompt_temp.format(context_data=community_context)
         response = await use_model_func(
             query,
@@ -992,13 +999,15 @@ async def global_query(
     text_chunks_db: BaseKVStorage[TextChunkSchema],
     query_param: QueryParam,
     global_config: dict,
+    prompts: Optional[Prompts] = None,
 ) -> str:
+    prompts = Prompts() if prompts is None else prompts
     community_schema = await knowledge_graph_inst.community_schema()
     community_schema = {
         k: v for k, v in community_schema.items() if v["level"] <= query_param.level
     }
     if not len(community_schema):
-        return PROMPTS["fail_response"]
+        return prompts.fail_response
     use_model_func = global_config["best_model_func"]
 
     sorted_community_schemas = sorted(
@@ -1042,7 +1051,7 @@ async def global_query(
             )
     final_support_points = [p for p in final_support_points if p["score"] > 0]
     if not len(final_support_points):
-        return PROMPTS["fail_response"]
+        return prompts.fail_response
     final_support_points = sorted(
         final_support_points, key=lambda x: x["score"], reverse=True
     )
@@ -1062,7 +1071,7 @@ Importance Score: {dp['score']}
     points_context = "\n".join(points_context)
     if query_param.only_need_context:
         return points_context
-    sys_prompt_temp = PROMPTS["global_reduce_rag_response"]
+    sys_prompt_temp = prompts.global_reduce_rag_response
     response = await use_model_func(
         query,
         sys_prompt_temp.format(
@@ -1078,11 +1087,13 @@ async def naive_query(
     text_chunks_db: BaseKVStorage[TextChunkSchema],
     query_param: QueryParam,
     global_config: dict,
+    prompts: Optional[Prompts],
 ):
+    prompts = Prompts() if prompts is None else prompts
     use_model_func = global_config["best_model_func"]
     results = await chunks_vdb.query(query, top_k=query_param.top_k)
     if not len(results):
-        return PROMPTS["fail_response"]
+        return prompts.fail_response
     chunks_ids = [r["id"] for r in results]
     chunks = await text_chunks_db.get_by_ids(chunks_ids)
 
@@ -1095,7 +1106,7 @@ async def naive_query(
     section = "--New Chunk--\n".join([c["content"] for c in maybe_trun_chunks])
     if query_param.only_need_context:
         return section
-    sys_prompt_temp = PROMPTS["naive_rag_response"]
+    sys_prompt_temp = prompts.naive_rag_response
     sys_prompt = sys_prompt_temp.format(
         content_data=section, response_type=query_param.response_type
     )
